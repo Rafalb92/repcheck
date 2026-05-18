@@ -1,0 +1,41 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: repcheck-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: repcheck
+      POSTGRES_PASSWORD: repcheck_dev
+      POSTGRES_DB: repcheck
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U repcheck"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    container_name: repcheck-minio
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: repcheck
+      MINIO_ROOT_PASSWORD: repcheck_dev_secret
+    ports:
+      - "9000:9000" # S3 API
+      - "9001:9001" # Web console
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  minio_data:
