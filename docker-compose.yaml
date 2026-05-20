@@ -18,7 +18,7 @@ services:
       retries: 5
 
   minio:
-    image: minio/minio:latest
+    image: minio/minio
     container_name: repcheck-minio
     restart: unless-stopped
     environment:
