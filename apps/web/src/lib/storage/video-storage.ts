@@ -63,9 +63,10 @@ export async function listVideos(): Promise<VideoMetadata[]> {
  * Runs in a transaction so partial failures don't leave orphans.
  */
 export async function deleteVideo(hash: string): Promise<void> {
-  await db.transaction('rw', db.videos, db.analyses, async () => {
+  await db.transaction('rw', db.videos, db.analyses, db.frames, async () => {
     await db.videos.delete(hash);
     await db.analyses.delete(hash);
+    await db.frames.where('videoHash').equals(hash).delete();
   });
 }
 
