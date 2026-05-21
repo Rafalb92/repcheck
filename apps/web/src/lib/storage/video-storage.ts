@@ -23,11 +23,10 @@ export async function hashBlob(blob: Blob): Promise<string> {
  * Idempotent: if a video with this hash exists, returns the existing record.
  */
 export async function saveVideo(
+  hash: string,
   blob: Blob,
   metadata: Omit<VideoMetadata, 'hash' | 'createdAt'>,
 ): Promise<VideoRecord> {
-  const hash = await hashBlob(blob);
-
   const existing = await db.videos.get(hash);
   if (existing) return existing;
 
@@ -63,9 +62,10 @@ export async function listVideos(): Promise<VideoMetadata[]> {
  * Runs in a transaction so partial failures don't leave orphans.
  */
 export async function deleteVideo(hash: string): Promise<void> {
-  await db.transaction('rw', db.videos, db.analyses, async () => {
+  await db.transaction('rw', db.videos, db.analyses, db.frames, async () => {
     await db.videos.delete(hash);
     await db.analyses.delete(hash);
+    await db.frames.where('videoHash').equals(hash).delete();
   });
 }
 
