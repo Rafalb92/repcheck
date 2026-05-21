@@ -12,4 +12,6 @@ export interface AnalysisRecord {
   createdAt: string;
   updatedAt: string;
   error?: string; // Set if status === 'failed'
+  frameExtractionStatus: 'idle' | 'running' | 'complete' | 'error';
+  frameCount: number;
 }

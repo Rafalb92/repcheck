@@ -39,21 +39,24 @@ export function terminateExtractor(): void {
 export async function extractVideoFrames(
   file: File,
   videoHash: string,
+  videoMeta: {
+    durationSec: number;
+    width: number;
+    height: number;
+    fps: number;
+  },
   onProgress: (p: ExtractionProgress) => void,
   config: ExtractionConfig = DEFAULT_EXTRACTION_CONFIG,
-): Promise<{ probe: VideoProbe; frames: ExtractedFrame[] }> {
+): Promise<{ frames: ExtractedFrame[] }> {
   const worker = getWorker();
-
-  // Comlink wraps the onProgress callback so the worker can call it as if it
-  // were a local function. We need to proxy it explicitly.
   return worker.extractFrames(
     file,
     config,
     Comlink.proxy(onProgress),
     videoHash,
+    videoMeta,
   );
 }
-
 export async function probeVideo(file: File): Promise<VideoProbe> {
   const worker = getWorker();
   return worker.probe(file);

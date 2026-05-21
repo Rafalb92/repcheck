@@ -1,47 +1,41 @@
-/**
- * Probe result — metadata about a video file before extraction.
- * Filled by reading the moov atom (MP4) or similar header.
- */
-export interface VideoProbe {
-  fps: number; // True frames per second from container
-  durationSec: number;
-  width: number;
-  height: number;
-  codec: string; // e.g. "h264", "vp9"
-}
+export type ExtractionPhase =
+  | 'loading_ffmpeg'
+  | 'probing'
+  | 'extracting'
+  | 'storing'
+  | 'done';
 
-/**
- * Configuration for frame extraction.
- */
-export interface ExtractionConfig {
-  /** Target FPS after decimation. Lower = faster + smaller storage. */
-  targetFps: number;
-
-  /** Optional max number of frames (safety cap). */
-  maxFrames?: number;
-
-  /** Output image format. PNG is lossless but bigger; JPEG is smaller but lossy. */
-  format: 'png' | 'jpeg';
-
-  /** JPEG quality 1-100, ignored for PNG. */
-  jpegQuality?: number;
-}
-
-export const DEFAULT_EXTRACTION_CONFIG: ExtractionConfig = {
-  targetFps: 30,
-  maxFrames: 2000, // 60s × 30fps + buffer
-  format: 'jpeg',
-  jpegQuality: 85,
-};
-
-/**
- * Progress event emitted during extraction.
- * `phase` reflects which stage of the pipeline we're in.
- */
 export interface ExtractionProgress {
-  phase: 'loading_ffmpeg' | 'probing' | 'extracting' | 'storing' | 'done';
-  /** 0..1, or null if indeterminate */
+  phase: ExtractionPhase;
   ratio: number | null;
-  /** Free-form message for UI */
   message: string;
 }
+
+export interface ExtractionConfig {
+  targetFps: number;
+  maxFrames?: number;
+  format: 'jpeg' | 'png';
+  jpegQuality?: number;
+
+  /**
+   * Max output frame width.
+   * The height is calculated automatically to preserve aspect ratio.
+   */
+  maxWidth?: number;
+}
+
+export interface VideoProbe {
+  codec: string;
+  width: number;
+  height: number;
+  fps: number;
+  durationSec: number;
+}
+
+export const DEFAULT_EXTRACTION_CONFIG = {
+  targetFps: 2, // TODO(day-5): bump to 30 for real motion analysis — 2 is for fast dev iteration
+  maxFrames: 40, // TODO(day-5): bump alongside fps (60s × 30fps ≈ 1800)
+  format: 'jpeg',
+  jpegQuality: 60,
+  maxWidth: 640,
+} satisfies ExtractionConfig;

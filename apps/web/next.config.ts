@@ -20,6 +20,16 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  webpack(config) {
+    config.module.rules.push({
+      test: /ffmpeg-core\.(js|wasm\.js)$/,
+      type: 'asset/resource',
+      generator: {
+        filename: 'static/chunks/[name][ext]',
+      },
+    });
+    return config;
+  },
 };
 
 export default nextConfig;

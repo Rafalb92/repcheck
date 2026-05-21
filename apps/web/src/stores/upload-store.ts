@@ -121,7 +121,7 @@ export const useUploadStore = create<UploadStore>((set, get) => ({
     set({ state: { status: 'storing', filename: file.name } });
 
     try {
-      const record = await saveVideo(file, {
+      const record = await saveVideo(hash, file, {
         filename: file.name,
         mimeType: file.type,
         sizeBytes: file.size,
