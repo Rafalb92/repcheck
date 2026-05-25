@@ -14,4 +14,7 @@ export interface AnalysisRecord {
   error?: string; // Set if status === 'failed'
   frameExtractionStatus: 'idle' | 'running' | 'complete' | 'error';
   frameCount: number;
+
+  poseDetectionStatus: 'idle' | 'running' | 'complete' | 'error';
+  poseFrameCount: number;
 }

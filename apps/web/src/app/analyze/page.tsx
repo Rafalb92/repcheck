@@ -3,6 +3,8 @@
 import { VideoDropzone } from '@/components/analyze/video-dropzone';
 import { ExtractionTrigger } from '@/components/analyze/extraction-trigger';
 import { ExtractionStatus } from '@/components/analyze/extraction-status';
+import { PoseStatus } from '@/components/analyze/pose-status';
+import { PoseTrigger } from '@/components/analyze/pose-trigger';
 
 export default function AnalyzePage() {
   return (
@@ -18,6 +20,9 @@ export default function AnalyzePage() {
 
       <ExtractionTrigger />
       <ExtractionStatus />
+
+      <PoseTrigger />
+      <PoseStatus />
     </main>
   );
 }
