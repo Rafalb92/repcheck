@@ -18,12 +18,16 @@ export async function initAnalysis(videoHash: string): Promise<AnalysisRecord> {
     // Backward compatibility for old records created before these fields existed.
     const needsPatch =
       existing.frameExtractionStatus === undefined ||
-      existing.frameCount === undefined;
+      existing.frameCount === undefined ||
+      existing.poseDetectionStatus === undefined ||   // NEW
+      existing.poseFrameCount === undefined;          // NEW
 
     if (needsPatch) {
       const patch = {
         frameExtractionStatus: existing.frameExtractionStatus ?? 'idle',
         frameCount: existing.frameCount ?? 0,
+        poseDetectionStatus: existing.poseDetectionStatus ?? 'idle',
+        poseFrameCount: existing.poseFrameCount ?? 0,
         updatedAt: new Date().toISOString(),
       } satisfies Partial<AnalysisRecord>;
 
@@ -45,6 +49,8 @@ export async function initAnalysis(videoHash: string): Promise<AnalysisRecord> {
 
     frameExtractionStatus: 'idle',
     frameCount: 0,
+    poseDetectionStatus: 'idle',     // NEW
+    poseFrameCount: 0,                // NEW
 
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -151,4 +157,49 @@ export async function getAnalysis(
   videoHash: string,
 ): Promise<AnalysisRecord | undefined> {
   return db.analyses.get(videoHash);
+}
+
+
+export type PoseDetectionStatus = 'idle' | 'running' | 'complete' | 'error';
+
+/**
+ * Update pose detection status.
+ */
+export async function updatePoseDetectionStatus(
+  videoHash: string,
+  poseDetectionStatus: PoseDetectionStatus,
+  poseFrameCount?: number,
+  error?: string,
+): Promise<void> {
+  await initAnalysis(videoHash);
+
+  await db.analyses.update(videoHash, {
+    poseDetectionStatus,
+    ...(typeof poseFrameCount === 'number' ? { poseFrameCount } : {}),
+    ...(error ? { error } : {}),
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+export async function markPoseDetectionRunning(videoHash: string): Promise<void> {
+  await updatePoseDetectionStatus(videoHash, 'running', 0);
+}
+
+export async function markPoseDetectionComplete(
+  videoHash: string,
+  poseFrameCount: number,
+): Promise<void> {
+  await updatePoseDetectionStatus(videoHash, 'complete', poseFrameCount);
+}
+
+export async function markPoseDetectionError(
+  videoHash: string,
+  error: string,
+): Promise<void> {
+  await updatePoseDetectionStatus(videoHash, 'error', undefined, error);
+}
+
+export async function hasCompletePoseDetection(videoHash: string): Promise<boolean> {
+  const analysis = await initAnalysis(videoHash);
+  return analysis.poseDetectionStatus === 'complete' && analysis.poseFrameCount > 0;
 }
