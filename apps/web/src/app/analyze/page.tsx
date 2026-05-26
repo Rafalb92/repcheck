@@ -3,15 +3,24 @@
 import { VideoDropzone } from '@/components/analyze/video-dropzone';
 import { ExtractionTrigger } from '@/components/analyze/extraction-trigger';
 import { ExtractionStatus } from '@/components/analyze/extraction-status';
-import { PoseStatus } from '@/components/analyze/pose-status';
 import { PoseTrigger } from '@/components/analyze/pose-trigger';
+import { PoseStatus } from '@/components/analyze/pose-status';
+import { AnalysisView } from '@/components/analyze/analysis-view';
+import { usePoseStore } from '@/stores/pose-store';
 
 export default function AnalyzePage() {
+  const poseState = usePoseStore((s) => s.state);
+
+  const analysisHash =
+    poseState.status === 'complete' || poseState.status === 'cached'
+      ? poseState.videoHash
+      : null;
+
   return (
-    <main className='container mx-auto max-w-4xl space-y-6 py-8'>
+    <main className="container mx-auto max-w-4xl space-y-6 py-8">
       <header>
-        <h1 className='text-3xl font-bold'>Analyze video</h1>
-        <p className='text-muted-foreground'>
+        <h1 className="text-3xl font-bold">Analyze video</h1>
+        <p className="text-muted-foreground">
           Drop a lifting video to analyze technique, bar path, and rep velocity.
         </p>
       </header>
@@ -23,6 +32,13 @@ export default function AnalyzePage() {
 
       <PoseTrigger />
       <PoseStatus />
+
+      {analysisHash && (
+        <section className="space-y-3">
+          <h2 className="text-xl font-semibold">Skeleton overlay</h2>
+          <AnalysisView videoHash={analysisHash} />
+        </section>
+      )}
     </main>
   );
 }
