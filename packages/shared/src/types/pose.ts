@@ -22,6 +22,33 @@ export const KEYPOINT_NAMES = [
   'right_ankle',
 ] as const;
 
+/**
+ * Skeleton connections — pairs of keypoint names that form "bones".
+ * Used for drawing the skeleton overlay.
+ */
+export const SKELETON_CONNECTIONS: Array<[KeypointName, KeypointName]> = [
+  // Face
+  ['nose', 'left_eye'],
+  ['nose', 'right_eye'],
+  ['left_eye', 'left_ear'],
+  ['right_eye', 'right_ear'],
+  // Arms
+  ['left_shoulder', 'left_elbow'],
+  ['left_elbow', 'left_wrist'],
+  ['right_shoulder', 'right_elbow'],
+  ['right_elbow', 'right_wrist'],
+  // Shoulders + torso
+  ['left_shoulder', 'right_shoulder'],
+  ['left_shoulder', 'left_hip'],
+  ['right_shoulder', 'right_hip'],
+  ['left_hip', 'right_hip'],
+  // Legs
+  ['left_hip', 'left_knee'],
+  ['left_knee', 'left_ankle'],
+  ['right_hip', 'right_knee'],
+  ['right_knee', 'right_ankle'],
+];
+
 export type KeypointName = (typeof KEYPOINT_NAMES)[number];
 
 export interface Keypoint {

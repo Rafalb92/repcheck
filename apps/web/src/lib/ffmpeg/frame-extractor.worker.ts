@@ -397,51 +397,63 @@ async function extractFrames(
       message: 'Reading extracted frames...',
     });
 
-    const frames: ExtractedFrame[] = [];
 
     console.log('[worker:extractFrames] before reading frames', {
       frameCount,
     });
 
+    const frames: ExtractedFrame[] = [];
+    const mimeType = config.format === 'png' ? 'image/png' : 'image/jpeg';
+
+    // Real dimensions of the scaled frames — read once from the first frame.
+    // MoveNet keypoints will be in THIS coordinate space, so metadata must match.
+    let frameWidth = videoMeta.width;
+    let frameHeight = videoMeta.height;
+    let dimsRead = false;
+
     for (let i = 1; i <= frameCount; i += 1) {
       const name = `${runId}-frame-${i.toString().padStart(4, '0')}.${ext}`;
 
       let data: Uint8Array;
-
       try {
         data = (await ffmpeg.readFile(name)) as Uint8Array;
       } catch {
-        console.warn('[worker:extractFrames] frame not found, stopping read', {
-          name,
-          index: i,
-        });
-
+        console.warn('[worker:extractFrames] frame not found, stopping read', { name, index: i });
         break;
       }
 
       generatedFileNames.push(name);
 
-      const imageBlob = new Blob([new Uint8Array(data)], {
-        type: mimeType,
-      });
+      const imageBlob = new Blob([new Uint8Array(data)], { type: mimeType });
+
+      // Read actual scaled dimensions from the first decoded frame
+      if (!dimsRead) {
+        try {
+          const bmp = await createImageBitmap(imageBlob);
+          frameWidth = bmp.width;
+          frameHeight = bmp.height;
+          bmp.close();
+          dimsRead = true;
+          console.log('[worker:extractFrames] real frame size', { frameWidth, frameHeight });
+        } catch {
+          // Fall back to videoMeta if decode fails — shouldn't happen
+        }
+      }
 
       frames.push({
         videoHash,
         frameIndex: i - 1,
         timestamp: (i - 1) / effectiveFps,
-        width: videoMeta.width,
-        height: videoMeta.height,
+        width: frameWidth,    // ← real scaled width (e.g. 640)
+        height: frameHeight,  // ← real scaled height (e.g. 360)
         imageBlob,
       });
 
+      await ffmpeg.deleteFile(name);
+
       if (i % 10 === 0 || i === frameCount) {
         console.log('[worker:extractFrames] read frame', i);
-
-        onProgress({
-          phase: 'storing',
-          ratio: i / frameCount,
-          message: `Reading frame ${i}/${frameCount}`,
-        });
+        onProgress({ phase: 'storing', ratio: i / frameCount, message: `Reading frame ${i}/${frameCount}` });
       }
     }
 
