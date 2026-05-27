@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import type { PoseFrame, Keypoint } from '@repcheck/shared';
+import { computeFrameAngles } from '@/lib/metrics/joint-angles';
+import type { PoseFrame, Keypoint, FrameAngles } from '@repcheck/shared';
 import { getAnalysis, getFramesForVideo } from '@/lib/storage';
 import { findClosestPoseFrame } from '@/lib/pose/find-pose-frame';
 import { VideoPlayer, type VideoPlayerHandle } from './video-player';
@@ -65,6 +66,10 @@ export function AnalysisView({ videoHash }: AnalysisViewProps) {
         [poseFrames],
     );
 
+    const currentAngles: FrameAngles | null = currentPose
+        ? computeFrameAngles(currentPose)
+        : null;
+
     if (loading) return <p className="text-sm text-muted-foreground">Loading analysis…</p>;
     if (poseFrames.length === 0)
         return <p className="text-sm text-muted-foreground">No pose data available.</p>;
@@ -83,6 +88,8 @@ export function AnalysisView({ videoHash }: AnalysisViewProps) {
                             sourceHeight={sourceDims.height}
                             displayWidth={displayWidth}
                             displayHeight={displayHeight}
+                            frameAngles={currentAngles}
+                            showAngles={true}
                         />
                     )}
                 />
@@ -103,23 +110,55 @@ export function AnalysisView({ videoHash }: AnalysisViewProps) {
             </div>
 
             {/* Debug panel */}
-            <KeypointDebugPanel pose={currentPose} />
+            <KeypointDebugPanel pose={currentPose} angles={currentAngles} />
         </div>
     );
 }
 
-function KeypointDebugPanel({ pose }: { pose: PoseFrame | null }) {
+function KeypointDebugPanel({ pose, angles }: { pose: PoseFrame | null; angles: FrameAngles | null }) {
     if (!pose) return null;
 
     return (
-        <div className="w-full shrink-0 rounded-lg border p-3 lg:w-72">
-            <h3 className="mb-2 text-sm font-semibold">
-                Keypoints · frame #{pose.frameIndex}
-            </h3>
-            <div className="space-y-1">
-                {pose.keypoints.map((kp) => (
-                    <KeypointRow key={kp.name} kp={kp} />
-                ))}
+        <div className="w-full shrink-0 space-y-4 rounded-lg border p-3 lg:w-72">
+            {/* Angles section */}
+            {angles && angles.angles.length > 0 && (
+                <div>
+                    <h3 className="mb-2 text-sm font-semibold">Joint angles</h3>
+                    <div className="space-y-1">
+                        {angles.angles.map((a) => {
+                            const hue = a.confidence * 120;
+                            return (
+                                <div
+                                    key={a.name}
+                                    className="flex items-center justify-between gap-2 text-xs"
+                                >
+                                    <span className="flex items-center gap-1.5">
+                                        <span
+                                            className="inline-block h-2 w-2 rounded-full"
+                                            style={{ backgroundColor: `hsl(${hue}, 90%, 50%)` }}
+                                        />
+                                        {a.name}
+                                    </span>
+                                    <span className="font-mono text-muted-foreground">
+                                        {Math.round(a.degrees)}° · {a.confidence.toFixed(2)}
+                                    </span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
+            {/* Keypoints section */}
+            <div>
+                <h3 className="mb-2 text-sm font-semibold">
+                    Keypoints · frame #{pose.frameIndex}
+                </h3>
+                <div className="space-y-1">
+                    {pose.keypoints.map((kp) => (
+                        <KeypointRow key={kp.name} kp={kp} />
+                    ))}
+                </div>
             </div>
         </div>
     );

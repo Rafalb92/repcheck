@@ -12,6 +12,9 @@ import { Button } from '@/components/ui/button';
 import { Play, Pause } from 'lucide-react';
 import { getVideo } from '@/lib/storage';
 
+const SPEED_OPTIONS = [0.25, 0.5, 0.75, 1] as const;
+type PlaybackSpeed = (typeof SPEED_OPTIONS)[number];
+
 export interface VideoPlayerHandle {
     seekTo: (timeSec: number) => void;
     pause: () => void;
@@ -29,7 +32,8 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
         const [objectUrl, setObjectUrl] = useState<string | null>(null);
         const [isPlaying, setIsPlaying] = useState(false);
         const [displayDims, setDisplayDims] = useState({ displayWidth: 0, displayHeight: 0 });
-
+        const [speed, setSpeed] = useState<PlaybackSpeed>(1);
+        
         useImperativeHandle(ref, () => ({
             seekTo: (timeSec: number) => {
                 const v = videoRef.current;
@@ -66,6 +70,11 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
             window.addEventListener('resize', updateDims);
             return () => window.removeEventListener('resize', updateDims);
         }, [updateDims, objectUrl]);
+
+        useEffect(() => {
+            const v = videoRef.current;
+            if (v) v.playbackRate = speed;
+        }, [speed, objectUrl]);
 
         // RAF time sync while playing
         useEffect(() => {
@@ -115,6 +124,19 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
                     <span className="text-xs text-muted-foreground">
                         Use Prev/Next pose buttons to step through detections
                     </span>
+                    <div className="flex items-center gap-1">
+                        {SPEED_OPTIONS.map((s) => (
+                            <Button
+                                key={s}
+                                size="sm"
+                                variant={speed === s ? 'default' : 'outline'}
+                                onClick={() => setSpeed(s)}
+                                className="px-2 font-mono text-xs"
+                            >
+                                {s}×
+                            </Button>
+                        ))}
+                    </div>
                 </div>
             </div>
         );
