@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import type { PoseFrame, Keypoint, KeypointName } from '@repcheck/shared';
-import { SKELETON_CONNECTIONS } from '@repcheck/shared';
+import type { PoseFrame, Keypoint, KeypointName, FrameAngles } from '@repcheck/shared';
+import { JOINT_ANGLE_DEFS, SKELETON_CONNECTIONS } from '@repcheck/shared';
 
 interface SkeletonOverlayProps {
     /** The pose frame to draw (null = draw nothing). */
@@ -15,6 +15,8 @@ interface SkeletonOverlayProps {
     displayHeight: number;
     /** Minimum keypoint score to draw. */
     minScore?: number;
+    frameAngles?: FrameAngles | null;   // NEW
+    showAngles?: boolean;               // NEW
 }
 
 export function SkeletonOverlay({
@@ -24,6 +26,8 @@ export function SkeletonOverlay({
     displayWidth,
     displayHeight,
     minScore = 0.3,
+    frameAngles,
+    showAngles = false,
 }: SkeletonOverlayProps) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -86,7 +90,44 @@ export function SkeletonOverlay({
             ctx.arc(x, y, 5, 0, Math.PI * 2);
             ctx.fill();
         }
-    }, [poseFrame, sourceWidth, sourceHeight, displayWidth, displayHeight, minScore]);
+
+        // Draw angle labels at vertex joints
+        if (showAngles && frameAngles) {
+            // Map angle name → its vertex keypoint name (from definitions)
+            const vertexByAngle = new Map(
+                JOINT_ANGLE_DEFS.map((d) => [d.name, d.vertex]),
+            );
+
+            ctx.font = '600 13px system-ui, sans-serif';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+
+            for (const angle of frameAngles.angles) {
+                // Only show reasonably confident angles
+                if (angle.confidence < (minScore ?? 0.3)) continue;
+
+                const vertexName = vertexByAngle.get(angle.name);
+                if (!vertexName) continue;
+
+                const vertex = byName.get(vertexName as KeypointName);
+                if (!vertex) continue;
+
+                const x = vertex.x * scaleX + 8;  // offset right of joint
+                const y = vertex.y * scaleY;
+                const label = `${Math.round(angle.degrees)}°`;
+
+                // Background pill for readability
+                const metrics = ctx.measureText(label);
+                const padX = 4;
+                const pillH = 16;
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+                ctx.fillRect(x - padX, y - pillH / 2, metrics.width + padX * 2, pillH);
+
+                ctx.fillStyle = 'white';
+                ctx.fillText(label, x, y);
+            }
+        }
+    }, [poseFrame, sourceWidth, sourceHeight, displayWidth, displayHeight, minScore, frameAngles, showAngles]);
 
     return (
         <canvas
