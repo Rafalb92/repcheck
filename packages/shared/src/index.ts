@@ -4,3 +4,4 @@ export * from './types/pose';
 export * from './types/analysis';
 export * from './types/frames';
 export * from './types/metrics';
+export * from './types/reps';

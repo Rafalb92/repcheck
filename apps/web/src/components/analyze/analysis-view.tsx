@@ -1,14 +1,17 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { computeFrameAngles } from '@/lib/metrics/joint-angles';
-import type { PoseFrame, Keypoint, FrameAngles } from '@repcheck/shared';
+import { computeAllAngles, computeFrameAngles } from '@/lib/metrics/joint-angles';
+import type { PoseFrame, Keypoint, FrameAngles, Rep } from '@repcheck/shared';
 import { getAnalysis, getFramesForVideo } from '@/lib/storage';
 import { findClosestPoseFrame } from '@/lib/pose/find-pose-frame';
 import { VideoPlayer, type VideoPlayerHandle } from './video-player';
 import { SkeletonOverlay } from './skeleton-overlay';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { segmentReps } from '@/lib/metrics/rep-segmentation';
+import { AngleChart } from './angle-chart';
+import { RepList } from './rep-list';
 
 interface AnalysisViewProps {
     videoHash: string;
@@ -70,47 +73,89 @@ export function AnalysisView({ videoHash }: AnalysisViewProps) {
         ? computeFrameAngles(currentPose)
         : null;
 
+    
+    // Compute angles + reps when pose data loads
+    const allAngles = poseFrames.length > 0 ? computeAllAngles(poseFrames) : [];
+
+    // Estimate fps from timestamps (more reliable than stored video fps,
+    // because we extracted at a different rate)
+    const estimatedFps =
+        allAngles.length >= 2
+            ? 1 / (allAngles[1].timestamp - allAngles[0].timestamp)
+            : 12;
+
+    const segmentation =
+        allAngles.length > 0
+            ? segmentReps(allAngles, estimatedFps)
+            : { jointName: '', repCount: 0, reps: [] };
+
+    // Handler: seek video to a specific rep's bottom
+    const seekToRep = (rep: Rep) => {
+        playerRef.current?.pause();
+        playerRef.current?.seekTo(rep.bottomTime);
+    };
+
+    // Handler: seek video from chart click
+    const seekToTime = (timeSec: number) => {
+        playerRef.current?.seekTo(timeSec);
+    };
+
+    const currentTime = currentPose?.timestamp ?? 0;
+
+
     if (loading) return <p className="text-sm text-muted-foreground">Loading analysis…</p>;
     if (poseFrames.length === 0)
         return <p className="text-sm text-muted-foreground">No pose data available.</p>;
 
     return (
-        <div className="flex flex-col gap-4 lg:flex-row">
-            <div className="flex-1">
-                <VideoPlayer
-                    ref={playerRef}
-                    videoHash={videoHash}
-                    onTimeUpdate={handleTimeUpdate}
-                    overlay={({ displayWidth, displayHeight }) => (
-                        <SkeletonOverlay
-                            poseFrame={currentPose}
-                            sourceWidth={sourceDims.width}
-                            sourceHeight={sourceDims.height}
-                            displayWidth={displayWidth}
-                            displayHeight={displayHeight}
-                            frameAngles={currentAngles}
-                            showAngles={true}
-                        />
-                    )}
-                />
+        <div className="space-y-4">
+            <div className="flex flex-col gap-4 lg:flex-row">
+                <div className="flex-1 space-y-4">
+                    <VideoPlayer
+                        ref={playerRef}
+                        videoHash={videoHash}
+                        onTimeUpdate={handleTimeUpdate}
+                        overlay={({ displayWidth, displayHeight }) => (
+                            <SkeletonOverlay
+                                poseFrame={currentPose}
+                                sourceWidth={sourceDims.width}
+                                sourceHeight={sourceDims.height}
+                                displayWidth={displayWidth}
+                                displayHeight={displayHeight}
+                                frameAngles={currentAngles}
+                                showAngles={true}
+                            />
+                        )}
+                    />
 
-                {/* Pose stepper */}
-                <div className="mt-3 flex items-center gap-2">
-                    <Button size="icon" variant="outline" onClick={() => goToPose(currentIndex - 1)}>
-                        <ChevronLeft size={16} />
-                    </Button>
-                    <Button size="icon" variant="outline" onClick={() => goToPose(currentIndex + 1)}>
-                        <ChevronRight size={16} />
-                    </Button>
-                    <span className="font-mono text-sm text-muted-foreground">
-                        Pose {currentIndex + 1} / {poseFrames.length}
-                        {currentPose && ` · ${currentPose.timestamp.toFixed(2)}s`}
-                    </span>
+                    {/* Pose stepper (existing) */}
+                    <div className="flex items-center gap-2">
+                        <Button size="icon" variant="outline" onClick={() => goToPose(currentIndex - 1)}>
+                            <ChevronLeft size={16} />
+                        </Button>
+                        <Button size="icon" variant="outline" onClick={() => goToPose(currentIndex + 1)}>
+                            <ChevronRight size={16} />
+                        </Button>
+                        <span className="font-mono text-sm text-muted-foreground">
+                            Pose {currentIndex + 1} / {poseFrames.length}
+                            {currentPose && ` · ${currentPose.timestamp.toFixed(2)}s`}
+                        </span>
+                    </div>
+
+                    {/* Chart — full width below player */}
+                    <AngleChart
+                        frameAngles={allAngles}
+                        segmentation={segmentation}
+                        currentTime={currentTime}
+                        onSeek={seekToTime}
+                    />
+                </div>
+
+                <div className="space-y-4 lg:w-72">
+                    <RepList segmentation={segmentation} onSeekToRep={seekToRep} />
+                    <KeypointDebugPanel pose={currentPose} angles={currentAngles} />
                 </div>
             </div>
-
-            {/* Debug panel */}
-            <KeypointDebugPanel pose={currentPose} angles={currentAngles} />
         </div>
     );
 }
